@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<meta charset='UTF-8'>
+<title>Visual Affiliations</title>
+<style>
+</style>
+<head>
+	<script src='//alexmacy.github.io/crossfilter/crossfilter.v1.min.js'></script>
+	<script src='//d3js.org/d3.v4.min.js'></script>
+	<style type="text/css">
+		circle { fill-opacity: .5;  fill: blue; }
+	</style>
+</head>
+<body>
+<script>
+
+	var boxSize = 50,
+		width = boxSize * 4,
+	    height = boxSize * 4,
+	    maxRadius = boxSize / 2;
+
+	var svg = d3.select("body")
+				.append("svg")
+					.attr("width", width + 100)
+					.attr("height", height + 100)
+				//.append("g")
+				//	.attr("transform", "translate(50,50)");
+
+
+	d3.csv("example2.csv", function(error, data) {
+
+		data.forEach(function(d) {
+			d.year = +d.year;
+			d.papers = +d.papers;
+			d.citations = +d.citations;
+			d.core_id1 = +d.core_id1;
+			d.core_id2 = +d.core_id2;
+		});
+
+		var cf = crossfilter(data); window.cf = cf;
+			cf.year = cf.dimension(function(d) { return d.year; });
+			cf.subject = cf.dimension(function(d) { return d.subject; });
+			cf.inst1 = cf.dimension(function(d) { return d.inst1; });
+			cf.papers = cf.dimension(function(d) { return d.papers; });
+			cf.citations = cf.dimension(function(d) { return d.citations; });
+		
+		//console.log(cf.groupAll().reduceSum(function(d){return d.papers;}).value());
+
+		var gYear = cf.year.group();
+		var gSubject = cf.subject.group();
+		var gInst1 = cf.inst1.group(); 
+
+		var dYear = gYear.all().map(function(d,i,t) { return t[i].key; }).sort(); //distinct values
+		var dSubject = gSubject.all().map(function(d,i,t) { return t[i].key; }).sort(); //distinct values
+		var dInst = gInst1.all().map(function(d,i,t) { return t[i].key; }).sort(); //distinct values
+
+		//var dataContainer = {};
+		//	dataContainer[dSubject[0]] = {}; 
+		//	dataContainer[dSubject[0]][dYear[0]]['papers']['data'] = 
+		//	dataContainer[dSubject[0]][dYear[0]]['papers'] = matrix(cf.subject, dSubject[0], cf.year, dYear[0], 'papers'); //by reference
+
+		var selectedSubject = dSubject[1];
+		var selectedYear = dYear[1];
+		
+		var maxPapers = cf.papers.top(1)[0]['papers'];
+		console.log(maxPapers);
+		var maxCitations = cf.citations.top(1);
+		
+		var radius = calculateRadius(maxPapers, maxRadius);
+
+		var coord = d3.scaleLinear()
+						.domain([0, dInst.length])
+					    .range([width, 0]);
+		window.coord = coord;
+		//init data
+		chartData = chartData(dInst, cf.subject, selectedSubject, cf.year, selectedYear); //console.log(chartData);
+
+		svg.selectAll("circle")
+		  .data(chartData)
+		  .enter()
+		  .append("circle")
+		  .attr("cx", function(d) {return coord(dInst.indexOf(d.inst1)) + 25;})
+		  .attr("cy", function(d) {return coord(dInst.indexOf(d.inst2)) + 25;})
+		  .attr("r", function(d) {return radius(d.papers);})
+
+
+	});
+
+	function calculateRadius(domainTop, rangeTop) {
+		return d3.scaleLinear().domain([0, domainTop]).range([0, rangeTop]);
+	}
+
+
+	function chartData(institutionList, subjectDim, subjectFilter, yearDim, yearFilter) {
+
+		yearDim.filter(yearFilter);
+		subjectDim.filter(subjectFilter);
+
+		var data = yearDim.top(Infinity); //console.log(data);
+		var keys = d3.keys(data[0]);
+		var chartData = [];
+
+		var cf = crossfilter(data); 
+			cf.inst1 = cf.dimension(function(d) { return d.inst1; });
+			cf.inst2 = cf.dimension(function(d) { return d.inst2; });
+
+		institutionList.forEach(function(instRow) {
+			institutionList.forEach(function(instCol){
+				
+				cf.inst1.filter(instRow); //console.log(instRow);
+				cf.inst2.filter(instCol); //console.log(instCol);
+
+				var d = {};
+
+				if (cf.inst1.top(1)[0] == null) {
+					
+					keys.forEach(function(k) {
+						if (k == 'inst1') {
+							d[k] = instRow;	
+						} else if (k == 'inst2') {
+							d[k] = instCol;	
+						} else {
+							d[k] = 0;
+						}
+					});
+
+				} else {
+					
+					d = cf.inst1.top(1)[0];
+				
+				}	
+				
+				chartData.push(d);
+
+			})
+		});
+
+		return chartData;
+
+	}
+
+
+
+	function matrix(subjectDim, subjectFilter, yearDim, yearFilter, dimension) {
+
+		yearDim.filter(yearFilter);
+		subjectDim.filter(subjectFilter);
+
+		var data = yearDim.top(Infinity);
+
+		var cf = crossfilter(data); 
+			cf.inst1 = cf.dimension(function(d) { return d.inst1; });
+			cf.inst2 = cf.dimension(function(d) { return d.inst2; });
+			
+		//var inst1 = cf.inst1.group();
+		//var inst2 = cf.inst2.group();
+
+		var institutions = distinct(data.map(function(d,i,t){ return t[i].inst1; }))
+				     	   .sort(); //could be done with crossfilter too!
+
+		var n = institutions.length;
+		
+		var matrix = [];
+
+	    for (var r = 0; r < n; r++) {
+    	    matrix.push(new Array(n).fill(0));
+    	    
+    	    for (var c = 0; c < n; c++) {
+
+    	    	cf.inst1.filter(institutions[r]);
+    	    	cf.inst2.filter(institutions[c]);
+
+    	    	if (r != c) {
+    	    		//console.log(cf.inst1.top(1)[0]);
+    	    		matrix[r][c] = cf.inst1.top(1)[0][dimension];
+    	    	}
+
+    	    }
+    	}
+    
+    	return {matrix, institutions};
+	}
+
+
+	function distinct(a) {
+		return a.filter(function(itm, i, a) { return i == a.indexOf(itm); });
+	}
+
+
+	/*function chartData(institutionList, subjectDim, subjectFilter, yearDim, yearFilter) {
+
+		yearDim.filter(yearFilter);
+		subjectDim.filter(subjectFilter);
+
+		var data = Object.assign([], yearDim.top(Infinity));
+		var keys = d3.keys(data[0]);
+		var chartData = [];
+		
+		console.log(data);
+
+		var cf = crossfilter(data); 
+			cf.inst1 = cf.dimension(function(d) { return d.inst1; });
+			cf.inst2 = cf.dimension(function(d) { return d.inst2; });
+
+		for (var r = 0; r < institutionList.length; r++) {
+			instRow = institutionList[r];
+			
+			for (var c = 0; c < institutionList.length; c++) {
+				instCol = institutionList[c];	
+
+				cf.inst1.filter(instRow);
+				cf.inst2.filter(instCol);
+				console.log(instRow);
+				console.log(instCol);
+
+				var d = {};	
+
+				if (cf.inst1.top(1)[0] == null) {
+					
+					for (var i = 0; i < keys.length; i++) { 
+						
+						var k = keys[i];
+
+						if (k == 'inst1') {
+							d[k] = instRow;	
+						} else if (k == 'inst2') {
+							d[k] = instCol;	
+						} else {
+							d[k] = 0;
+						}
+					}
+
+				} else {
+					
+					d = cf.inst1.top(1)[0];
+				}	
+				
+				chartData.push(d);
+
+			}
+		}
+
+		return chartData;
+
+	}*/
+
+</script>
+
+</body>
