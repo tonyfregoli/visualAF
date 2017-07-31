@@ -8,7 +8,7 @@
 	<script src='//d3js.org/d3.v4.min.js'></script>
 	<style type="text/css">
 		body{
-			font-family: sans-serif;
+			font-family: Open-sans;
 		}
 
 		#container {
@@ -23,10 +23,10 @@
 			float: left;
 		}
 		circle {
-			fill-opacity: .5; 
+			fill-opacity: .5;
 			fill: blue;
 		}
-		
+
 		text {
 			font-size: 10px;
 		}
@@ -44,30 +44,25 @@
 			<div>2011 <input type="range" id="ctrlYear" min="2011" max="2012" step=1 /> 2012</div>
 		</div>
 		<div id="svg"></div>
-	</div>	
+	</div>
 	<script>
 
 		var boxSize = 50,
-			width = boxSize * 4,
-		    height = boxSize * 4,
+				width = boxSize * 4,
+				height = boxSize * 4,
 		    maxRadius = boxSize / 2;
 
 		var svg = d3.select("#svg")
-					.append("svg")
-						.attr("width", width + 100)
-						.attr("height", height + 100)
-					//.append("g")
-					//	.attr("transform", "translate(50,50)");
-
-
-
+								.append("svg")
+								.attr("width", width + 100)
+								.attr("height", height + 100)
 
 		d3.csv("example2.csv", function(error, data) {
 
 			var ctrlYear = d3.select("#ctrlYear")
-							 .on("change", update);
+											 .on("change", update);
 			var ctrlSubject = d3.select("#ctrlSubject")
-								.on("change", update);
+													.on("change", update);
 
 			data.forEach(function(d) {
 				d.year = +d.year;
@@ -83,36 +78,38 @@
 				cf.inst1 = cf.dimension(function(d) { return d.inst1; });
 				cf.papers = cf.dimension(function(d) { return d.papers; });
 				cf.citations = cf.dimension(function(d) { return d.citations; });
-			
+
 			//console.log(cf.groupAll().reduceSum(function(d){return d.papers;}).value());
 
 			var gYear = cf.year.group();
 			var gSubject = cf.subject.group();
-			var gInst1 = cf.inst1.group(); 
+			var gInst1 = cf.inst1.group();
 
 			var dYear = gYear.all().map(function(d,i,t) { return t[i].key; }).sort(); //distinct values
 			var dSubject = gSubject.all().map(function(d,i,t) { return t[i].key; }).sort(); //distinct values
 			var dInst = gInst1.all().map(function(d,i,t) { return t[i].key; }).sort(); //distinct values
 
-			//var dataContainer = {};
-			//	dataContainer[dSubject[0]] = {}; 
-			//	dataContainer[dSubject[0]][dYear[0]]['papers']['data'] = 
-			//	dataContainer[dSubject[0]][dYear[0]]['papers'] = matrix(cf.subject, dSubject[0], cf.year, dYear[0], 'papers'); //by reference
 
 			var selectedSubject = dSubject[0];
 			var selectedYear = dYear[0];
-			
+
 			var maxPapers = cf.papers.top(1)[0]['papers']; //console.log(maxPapers);
-			var maxCitations = cf.citations.top(1);
-			
+			var maxCitations = cf.citations.top(1)[0]['citations'];
+
 			var radius = calculateRadius(maxPapers, maxRadius);
 
 			var coord = d3.scaleLinear()
-							.domain([0, dInst.length])
-						    .range([width, 0]); //window.coord = coord;
-			
+										.domain([0, dInst.length])
+						    		.range([width, 0]); //window.coord = coord;
+
 			//data
-			var chartData = generateChartData(dInst, cf.subject, selectedSubject, cf.year, selectedYear); //console.log(chartData);
+			var chartData = generateChartData(dInst, cf.subject, selectedSubject, cf.year, selectedYear);
+
+			var dataContainer = {};
+					dataContainer[dSubject[0]] = {}; //console.log(chartData);
+					dataContainer[dSubject[0]][dYear[0]] = {}; //console.log(chartData);
+					dataContainer[dSubject[0]][dYear[0]]['papers'] = chartData; //console.log(chartData);
+					//dataContainer[dSubject[0]][dYear[0]]['papers'] = matrix(cf.subject, dSubject[0], cf.year, dYear[0], 'papers'); //by reference
 
 			//visual
 			svg.selectAll("circle")
@@ -143,15 +140,26 @@
 
 
 			function update() {
-				selectedYear = ctrlYear.property("value"); console.log(selectedYear);
-				selectedSubject = ctrlSubject.property("value"); console.log(selectedSubject);
+				selectedYear = ctrlYear.property("value"); //console.log(selectedYear);
+				selectedSubject = ctrlSubject.property("value"); //console.log(selectedSubject);
 
-				chartData = generateChartData(dInst, cf.subject, selectedSubject, cf.year, selectedYear); //console.log(chartData);
+				dataContainer[selectedSubject] == null ? dataContainer[selectedSubject] = {} :  true;
+
+				if (dataContainer[selectedSubject][selectedYear] == null) {
+					chartData = generateChartData(dInst, cf.subject, selectedSubject, cf.year, selectedYear); //console.log(chartData);
+
+					dataContainer[selectedSubject][selectedYear] = {}
+					dataContainer[selectedSubject][selectedYear]['papers'] = chartData;
+
+				} else {
+					chartData = dataContainer[selectedSubject][selectedYear]['papers'];
+				}
+				 //console.log(chartData);
 
 				d3.selectAll("circle")
 				  .data(chartData)
 				  .transition()
-			   	  .attr("r", function(d) {return radius(d.papers);});
+			   	.attr("r", function(d) {return radius(d.papers);});
 
 			}
 
@@ -172,36 +180,36 @@
 			var keys = d3.keys(data[0]);
 			var chartData = [];
 
-			var cf = crossfilter(data); 
+			var cf = crossfilter(data);
 				cf.inst1 = cf.dimension(function(d) { return d.inst1; });
 				cf.inst2 = cf.dimension(function(d) { return d.inst2; });
 
 			institutionList.forEach(function(instRow) {
 				institutionList.forEach(function(instCol){
-					
+
 					cf.inst1.filter(instRow); //console.log(instRow);
 					cf.inst2.filter(instCol); //console.log(instCol);
 
 					var d = {};
 
 					if (cf.inst1.top(1)[0] == null) {
-						
+
 						keys.forEach(function(k) {
 							if (k == 'inst1') {
-								d[k] = instRow;	
+								d[k] = instRow;
 							} else if (k == 'inst2') {
-								d[k] = instCol;	
+								d[k] = instCol;
 							} else {
 								d[k] = 0;
 							}
 						});
 
 					} else {
-						
+
 						d = cf.inst1.top(1)[0];
-					
-					}	
-					
+
+					}
+
 					chartData.push(d);
 
 				})
@@ -220,10 +228,10 @@
 
 			var data = yearDim.top(Infinity);
 
-			var cf = crossfilter(data); 
+			var cf = crossfilter(data);
 				cf.inst1 = cf.dimension(function(d) { return d.inst1; });
 				cf.inst2 = cf.dimension(function(d) { return d.inst2; });
-				
+
 			//var inst1 = cf.inst1.group();
 			//var inst2 = cf.inst2.group();
 
@@ -231,12 +239,12 @@
 					     	   .sort(); //could be done with crossfilter too!
 
 			var n = institutions.length;
-			
+
 			var matrix = [];
 
 		    for (var r = 0; r < n; r++) {
 	    	    matrix.push(new Array(n).fill(0));
-	    	    
+
 	    	    for (var c = 0; c < n; c++) {
 
 	    	    	cf.inst1.filter(institutions[r]);
@@ -249,7 +257,7 @@
 
 	    	    }
 	    	}
-	    
+
 	    	return {matrix, institutions};
 		}
 
@@ -267,46 +275,46 @@
 			var data = Object.assign([], yearDim.top(Infinity));
 			var keys = d3.keys(data[0]);
 			var chartData = [];
-			
+
 			console.log(data);
 
-			var cf = crossfilter(data); 
+			var cf = crossfilter(data);
 				cf.inst1 = cf.dimension(function(d) { return d.inst1; });
 				cf.inst2 = cf.dimension(function(d) { return d.inst2; });
 
 			for (var r = 0; r < institutionList.length; r++) {
 				instRow = institutionList[r];
-				
+
 				for (var c = 0; c < institutionList.length; c++) {
-					instCol = institutionList[c];	
+					instCol = institutionList[c];
 
 					cf.inst1.filter(instRow);
 					cf.inst2.filter(instCol);
 					console.log(instRow);
 					console.log(instCol);
 
-					var d = {};	
+					var d = {};
 
 					if (cf.inst1.top(1)[0] == null) {
-						
-						for (var i = 0; i < keys.length; i++) { 
-							
+
+						for (var i = 0; i < keys.length; i++) {
+
 							var k = keys[i];
 
 							if (k == 'inst1') {
-								d[k] = instRow;	
+								d[k] = instRow;
 							} else if (k == 'inst2') {
-								d[k] = instCol;	
+								d[k] = instCol;
 							} else {
 								d[k] = 0;
 							}
 						}
 
 					} else {
-						
+
 						d = cf.inst1.top(1)[0];
-					}	
-					
+					}
+
 					chartData.push(d);
 
 				}
