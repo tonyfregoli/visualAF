@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <meta charset='UTF-8'>
-<title>Visual Affiliations</title>
+<title>Relationship visual matrix</title>
 <style>
 </style>
 <head>
 	<script src='//alexmacy.github.io/crossfilter/crossfilter.v1.min.js'></script>
 	<script src='//d3js.org/d3.v4.min.js'></script>
 	<style type="text/css">
+		body{
+			font-family: sans-serif;
+		}
+
 		#container {
 			width: 550px;
 		}
@@ -22,12 +26,21 @@
 			fill-opacity: .5; 
 			fill: blue;
 		}
+		
+		text {
+			font-size: 10px;
+		}
 	</style>
 </head>
 <body>
+	<h1>Relationship visual matrix</h1>
+	<h3><i>draft</i></h3>
 	<div id="container">
 		<div id="controls">
+			Subject
 			<div><select id="ctrlSubject"><option value"SUB1">SUB1</option><option value"SUB2">SUB2</option></select></div>
+			<br/>
+			Year
 			<div>2011 <input type="range" id="ctrlYear" min="2011" max="2012" step=1 /> 2012</div>
 		</div>
 		<div id="svg"></div>
@@ -45,6 +58,8 @@
 						.attr("height", height + 100)
 					//.append("g")
 					//	.attr("transform", "translate(50,50)");
+
+
 
 
 		d3.csv("example2.csv", function(error, data) {
@@ -96,9 +111,10 @@
 							.domain([0, dInst.length])
 						    .range([width, 0]); //window.coord = coord;
 			
-			//init data
+			//data
 			var chartData = generateChartData(dInst, cf.subject, selectedSubject, cf.year, selectedYear); //console.log(chartData);
 
+			//visual
 			svg.selectAll("circle")
 			   .data(chartData)
 			   .enter()
@@ -106,6 +122,25 @@
 			   .attr("cx", function(d) {return coord(dInst.indexOf(d.inst1)) + 25;})
 			   .attr("cy", function(d) {return coord(dInst.indexOf(d.inst2)) + 25;})
 			   .attr("r", function(d) {return radius(d.papers);});
+
+			var rowLabels = svg.append("g");
+			var columnLabels = svg.append("g");
+
+			rowLabels.selectAll("text")
+				.data(dInst)
+				.enter()
+				.append("text")
+				.attr("y", function(d) {return coord(dInst.indexOf(d)) + 30;})
+				.text(function(d) {return d;});
+
+			columnLabels.selectAll("text")
+				.data(dInst)
+				.enter()
+				.append("text")
+				.attr("x", function(d) {return coord(dInst.indexOf(d)) + 10;})
+				.attr("y", 35)
+				.text(function(d) {return d;});
+
 
 			function update() {
 				selectedYear = ctrlYear.property("value"); console.log(selectedYear);
