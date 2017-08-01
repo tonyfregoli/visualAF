@@ -8,25 +8,30 @@
 	<script src='//d3js.org/d3.v4.min.js'></script>
 	<style type="text/css">
 		body{
-			font-family: Open-sans;
+			font-family: Tahoma;
 		}
 
 		#container {
-			width: 550px;
+			width: 960px;
 		}
-		#svg {
-			float: right
-			;
+		#papersChart {
+			float: right;
+		}
+		#citationsChart {
+			float: right;
 		}
 		#controls {
 			margin-top: 50px;
 			float: left;
 		}
-		circle {
-			fill-opacity: .5;
-			fill: blue;
+		#papersChart circle {
+			/*fill-opacity: .9;*/
+			fill: rgb(76, 146, 195);
 		}
-
+		#citationsChart circle {
+			/*fill-opacity: .5;*/
+			fill: rgb(255, 153, 62);
+		}
 		text {
 			font-size: 10px;
 		}
@@ -41,28 +46,48 @@
 			<div><select id="ctrlSubject"><option value"SUB1">SUB1</option><option value"SUB2">SUB2</option></select></div>
 			<br/>
 			Year
-			<div>2011 <input type="range" id="ctrlYear" min="2011" max="2012" step=1 /> 2012</div>
+			<div>2011 <input type="range" id="ctrlYear" min="2011" max="2012" step=1 value="2011"/> 2012</div>
 		</div>
-		<div id="svg"></div>
+		<div id="papersChart"></div>
+		<div id="citationsChart"></div>
 	</div>
 	<script>
 
 		var boxSize = 50,
-				width = boxSize * 4,
-				height = boxSize * 4,
+			width = boxSize * 4,
+			height = boxSize * 4,
 		    maxRadius = boxSize / 2;
 
-		var svg = d3.select("#svg")
-								.append("svg")
-								.attr("width", width + 100)
-								.attr("height", height + 100)
+		var papersChart = d3.select("#papersChart")
+					.append("svg")
+					.attr("width", width + 100)
+					.attr("height", height + 100)
+
+		var citationsChart = d3.select("#citationsChart")
+					.append("svg")
+					.attr("width", width + 100)
+					.attr("height", height + 100)
+
+		papersChart.append("text")
+				   .attr("x", width / 2 )
+		    	   .attr("y", 10)
+		    	   .style("text-anchor", "middle")
+		    	   .style("font-size", "13px")
+		    	   .text("Papers");
+
+	   citationsChart.append("text")
+				   .attr("x", width / 2 )
+		    	   .attr("y", 10)
+		    	   .style("text-anchor", "middle")
+				   .style("font-size", "13px")
+		    	   .text("Citations");
 
 		d3.csv("example2.csv", function(error, data) {
 
 			var ctrlYear = d3.select("#ctrlYear")
-											 .on("change", update);
+							 .on("change", update);
 			var ctrlSubject = d3.select("#ctrlSubject")
-													.on("change", update);
+								.on("change", update);
 
 			data.forEach(function(d) {
 				d.year = +d.year;
@@ -96,32 +121,58 @@
 			var maxPapers = cf.papers.top(1)[0]['papers']; //console.log(maxPapers);
 			var maxCitations = cf.citations.top(1)[0]['citations'];
 
-			var radius = calculateRadius(maxPapers, maxRadius);
+			var papersRadius = calculateRadius(maxPapers, maxRadius);
+			var citationsRadius = calculateRadius(maxCitations, maxRadius);
 
 			var coord = d3.scaleLinear()
-										.domain([0, dInst.length])
-						    		.range([width, 0]); //window.coord = coord;
+						  .domain([0, dInst.length])
+						  .range([width, 0]); //window.coord = coord;
 
 			//data
 			var chartData = generateChartData(dInst, cf.subject, selectedSubject, cf.year, selectedYear);
 
 			var dataContainer = {};
-					dataContainer[dSubject[0]] = {}; //console.log(chartData);
-					dataContainer[dSubject[0]][dYear[0]] = {}; //console.log(chartData);
-					dataContainer[dSubject[0]][dYear[0]]['papers'] = chartData; //console.log(chartData);
-					//dataContainer[dSubject[0]][dYear[0]]['papers'] = matrix(cf.subject, dSubject[0], cf.year, dYear[0], 'papers'); //by reference
+				dataContainer[dSubject[0]] = {}; //console.log(chartData);
+				dataContainer[dSubject[0]][dYear[0]] = chartData; //console.log(chartData);
+				//dataContainer[dSubject[0]][dYear[0]]['papers'] = matrix(cf.subject, dSubject[0], cf.year, dYear[0], 'papers'); //by reference
 
 			//visual
-			svg.selectAll("circle")
+			papersChart.selectAll("circle")
 			   .data(chartData)
 			   .enter()
 			   .append("circle")
 			   .attr("cx", function(d) {return coord(dInst.indexOf(d.inst1)) + 25;})
 			   .attr("cy", function(d) {return coord(dInst.indexOf(d.inst2)) + 25;})
-			   .attr("r", function(d) {return radius(d.papers);});
+			   .attr("r", function(d) {return papersRadius(d.papers);});
 
-			var rowLabels = svg.append("g");
-			var columnLabels = svg.append("g");
+			var rowLabels = papersChart.append("g");
+			var columnLabels = papersChart.append("g");
+
+			rowLabels.selectAll("text")
+				.data(dInst)
+				.enter()
+				.append("text")
+				.attr("y", function(d) {return coord(dInst.indexOf(d)) + 30;})
+				.text(function(d) {return d;});
+
+			columnLabels.selectAll("text")
+				.data(dInst)
+				.enter()
+				.append("text")
+				.attr("x", function(d) {return coord(dInst.indexOf(d)) + 10;})
+				.attr("y", 35)
+				.text(function(d) {return d;});
+
+			citationsChart.selectAll("circle")
+			   .data(chartData)
+			   .enter()
+			   .append("circle")
+			   .attr("cx", function(d) {return coord(dInst.indexOf(d.inst1)) + 25;})
+			   .attr("cy", function(d) {return coord(dInst.indexOf(d.inst2)) + 25;})
+			   .attr("r", function(d) {return citationsRadius(d.citations);});
+
+			var rowLabels = citationsChart.append("g");
+			var columnLabels = citationsChart.append("g");
 
 			rowLabels.selectAll("text")
 				.data(dInst)
@@ -148,18 +199,24 @@
 				if (dataContainer[selectedSubject][selectedYear] == null) {
 					chartData = generateChartData(dInst, cf.subject, selectedSubject, cf.year, selectedYear); //console.log(chartData);
 
-					dataContainer[selectedSubject][selectedYear] = {}
-					dataContainer[selectedSubject][selectedYear]['papers'] = chartData;
+					dataContainer[selectedSubject][selectedYear] = chartData;
 
 				} else {
-					chartData = dataContainer[selectedSubject][selectedYear]['papers'];
+					chartData = dataContainer[selectedSubject][selectedYear];
 				}
 				 //console.log(chartData);
 
-				d3.selectAll("circle")
+				d3.select("#papersChart")
+				  .selectAll("circle")
 				  .data(chartData)
 				  .transition()
-			   	.attr("r", function(d) {return radius(d.papers);});
+			   	  .attr("r", function(d) {return papersRadius(d.papers);});
+
+				d3.select("#citationsChart")
+				  .selectAll("circle")
+				  .data(chartData)
+				  .transition()
+			   	  .attr("r", function(d) {return citationsRadius(d.citations);});
 
 			}
 
